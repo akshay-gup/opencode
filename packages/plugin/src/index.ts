@@ -54,6 +54,8 @@ export type WorkspaceAdapter = {
 }
 
 export type PluginInput = {
+  /** Present only in the Metalanguage lifecycle-enabled runtime. */
+  metalanguage?: { inference: 1; base: string }
   client: ReturnType<typeof createOpencodeClient>
   project: Project
   directory: string
@@ -220,6 +222,11 @@ export type ProviderHook = {
 export type AuthOuathResult = AuthOAuthResult
 
 export interface Hooks {
+  /** Awaited before submission and before releasing provider acknowledgement to tools. */
+  "experimental.chat.inference"?: (
+    input: { sessionID: string; inferenceID: string; phase: "prepare" | "acknowledged"; responseID?: string },
+    output: { required: boolean },
+  ) => Promise<void>
   dispose?: () => Promise<void>
   event?: (input: { event: Event }) => Promise<void>
   config?: (input: Config) => Promise<void>
@@ -264,7 +271,7 @@ export interface Hooks {
     output: { parts: Part[] },
   ) => Promise<void>
   "tool.execute.before"?: (
-    input: { tool: string; sessionID: string; callID: string },
+    input: { tool: string; sessionID: string; callID: string; inferenceID?: string; programID?: string },
     output: { args: any },
   ) => Promise<void>
   "shell.env"?: (
@@ -272,7 +279,7 @@ export interface Hooks {
     output: { env: Record<string, string> },
   ) => Promise<void>
   "tool.execute.after"?: (
-    input: { tool: string; sessionID: string; callID: string; args: any },
+    input: { tool: string; sessionID: string; callID: string; args: any; inferenceID?: string; programID?: string },
     output: {
       title: string
       output: string
@@ -280,7 +287,7 @@ export interface Hooks {
     },
   ) => Promise<void>
   "experimental.chat.messages.transform"?: (
-    input: {},
+    input: { sessionID?: string; inferenceID?: string; lifecycle?: 1 },
     output: {
       messages: {
         info: Message

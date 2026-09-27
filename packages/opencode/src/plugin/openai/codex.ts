@@ -326,7 +326,8 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
       provider: "openai",
       async loader(getAuth) {
         const auth = await getAuth()
-        const websocketFetch = options.experimentalWebSockets
+        // Decay sends the complete filtered input over HTTP on every request.
+        const websocketFetch = options.experimentalWebSockets && !process.env.METALANGUAGE_DIRECTORY_AGENTS_DECAY_STEPS
           ? OpenAIWebSocketPool.createWebSocketFetch({ httpFetch: fetch })
           : undefined
         if (websocketFetch) {

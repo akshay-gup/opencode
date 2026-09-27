@@ -29,8 +29,13 @@ import { DbCommand } from "./cli/cmd/db"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
+import { MANAGED_INFERENCE } from "./session/llm/managed-inference"
 
 const args = hideBin(process.argv)
+if (args.length === 1 && args[0] === "--metalanguage-capabilities") {
+  process.stdout.write(JSON.stringify(MANAGED_INFERENCE) + "\n")
+  process.exit(0)
+}
 
 function show(out: string) {
   const text = out.trimStart()

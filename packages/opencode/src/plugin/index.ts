@@ -33,6 +33,7 @@ import type { WorkspaceAdapter } from "@/control-plane/types"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { InstallationChannel } from "@opencode-ai/core/installation/version"
+import { MANAGED_INFERENCE } from "@/session/llm/managed-inference"
 
 type State = {
   hooks: Hooks[]
@@ -151,6 +152,7 @@ const layer = Layer.effect(
         })
         const cfg = yield* config.get()
         const input: PluginInput = {
+          metalanguage: { inference: 1, base: MANAGED_INFERENCE.base },
           client,
           project: ctx.project,
           worktree: ctx.worktree,

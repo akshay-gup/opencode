@@ -7,6 +7,7 @@ This folder contains adapters behind that service boundary:
 - `ai-sdk.ts` converts AI SDK `fullStream` parts into `@opencode-ai/llm` `LLMEvent`s. This is the default runtime path.
 - `native-request.ts` converts opencode's normalized session input into a native `@opencode-ai/llm` `LLMRequest`. It does not execute requests.
 - `native-runtime.ts` is the opt-in native runtime adapter. It decides whether a selected model is supported, builds the native request, bridges opencode tools into native executable tools, and delegates transport to `LLMClient` / `RequestExecutor`.
+- `managed-inference.ts` is a Metalanguage-only AI SDK stream barrier. It awaits provider response metadata with a nonempty response ID before the SDK can dispatch tool calls and rejects model output without acknowledgement.
 
 ## File Structure
 
@@ -18,6 +19,7 @@ src/session/
     ai-sdk.ts               AI SDK fullStream -> @opencode-ai/llm LLMEvent adapter
     native-request.ts       opencode/AI SDK-shaped input -> @opencode-ai/llm LLMRequest
     native-runtime.ts       native runtime gate, tool bridge, and LLMClient handoff
+    managed-inference.ts     Metalanguage response-metadata admission barrier
 ```
 
 Integration points:

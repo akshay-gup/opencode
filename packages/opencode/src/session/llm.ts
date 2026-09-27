@@ -29,10 +29,13 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { LLMAISDK } from "./llm/ai-sdk"
 import { LLMNativeRuntime } from "./llm/native-runtime"
 import { LLMRequestPrep } from "./llm/request"
+import { acknowledgedStream } from "./llm/managed-inference"
 
 export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
 export type StreamInput = {
+  /** One logical sampling step; unchanged by SessionProcessor retries. */
+  inferenceID?: string
   user: SessionV1.User
   sessionID: string
   parentSessionID?: string
@@ -116,6 +119,25 @@ const live: Layer.Layer<
       // from the workflow service are executed via opencode's tool system
       // and results sent back over the WebSocket.
       const bridge = yield* EffectBridge.make()
+      const lifecycle = input.inferenceID
+        ? yield* plugin.trigger("experimental.chat.inference", {
+            sessionID: input.sessionID, inferenceID: input.inferenceID, phase: "prepare",
+          }, { required: false })
+        : { required: false }
+      if (process.env.METALANGUAGE_DIRECTORY_AGENTS_DECAY_STEPS && !input.small && !lifecycle.required) {
+        throw new Error("Managed directory decay requires the lifecycle plugin")
+      }
+      if (lifecycle.required) {
+        if (flags.experimentalNativeLlm || isWorkflow ||
+            !["@ai-sdk/openai", "@ai-sdk/openai-compatible"].includes(input.model.api.npm)) {
+          throw new Error("Managed inference lifecycle requires the OpenAI/compatible AI SDK streaming path")
+        }
+        // No opaque server-side continuation may restore excluded context.
+        if (prepared.params.options.previousResponseId || prepared.params.options.conversation) {
+          throw new Error("Managed inference requires full input replay")
+        }
+        prepared.params.options.store = false
+      }
       if (language instanceof GitLabWorkflowLanguageModel) {
         const workflowModel = language as GitLabWorkflowLanguageModel & {
           sessionID?: string
@@ -327,6 +349,28 @@ const live: Layer.Layer<
             middleware: [
               {
                 specificationVersion: "v3" as const,
+                async wrapStream({ doStream }) {
+                  if (lifecycle.required) {
+                    await bridge.promise(plugin.trigger("experimental.chat.inference", {
+                      sessionID: input.sessionID,
+                      inferenceID: input.inferenceID!,
+                      phase: "prepare",
+                    }, { required: true }))
+                  }
+                  const result = await doStream()
+                  if (!lifecycle.required) return result
+                  return {
+                    ...result,
+                    stream: acknowledgedStream(result.stream, (responseID) => bridge.promise(
+                      plugin.trigger("experimental.chat.inference", {
+                        sessionID: input.sessionID,
+                        inferenceID: input.inferenceID!,
+                        phase: "acknowledged",
+                        responseID,
+                      }, { required: true }),
+                    ).then(() => undefined)),
+                  }
+                },
                 async transformParams(args) {
                   if (args.type === "stream") {
                     // @ts-expect-error

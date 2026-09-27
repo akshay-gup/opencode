@@ -376,7 +376,10 @@ const layer = Layer.effect(
         { context: [], prompt: undefined },
       )
       const msgs = structuredClone(selected.head)
-      yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
+      const inferenceID = MessageID.ascending()
+      yield* plugin.trigger("experimental.chat.messages.transform", {
+        sessionID: input.sessionID, inferenceID, lifecycle: 1,
+      }, { messages: msgs })
       const conversation = msgs.map(serialize).filter(Boolean).join("\n\n")
       const nextPrompt =
         compacting.prompt ??
@@ -391,7 +394,7 @@ const layer = Layer.effect(
           .join("\n\n")
       const ctx = yield* InstanceState.context
       const msg: SessionV1.Assistant = {
-        id: MessageID.ascending(),
+        id: inferenceID,
         role: "assistant",
         parentID: input.parentID,
         sessionID: input.sessionID,
@@ -423,6 +426,7 @@ const layer = Layer.effect(
         model,
       })
       const result = yield* processor.process({
+        inferenceID,
         user: userMessage,
         agent,
         sessionID: input.sessionID,

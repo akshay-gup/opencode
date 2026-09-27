@@ -1252,7 +1252,9 @@ const layer = Layer.effect(
             if (step === 1)
               yield* summary.summarize({ sessionID, messageID: lastUser.id }).pipe(Effect.ignore, Effect.forkIn(scope))
 
-            yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
+            yield* plugin.trigger("experimental.chat.messages.transform", {
+              sessionID, inferenceID: msg.id, lifecycle: 1,
+            }, { messages: msgs })
 
             const [skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
               sys.skills(agent),
@@ -1270,6 +1272,7 @@ const layer = Layer.effect(
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
+              inferenceID: msg.id,
               user: lastUser,
               agent,
               permission: session.permission,
